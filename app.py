@@ -10,9 +10,67 @@ import edge_tts
 # 페이지 기본 설정
 st.set_page_config(page_title="CueSide - AI 연기 연습 파트너", page_icon="🎭", layout="centered")
 
+# 내장 샘플 대본 데이터 (폴더 없이도 즉시 작동)
+EMBEDDED_SAMPLES = {
+    "bus_stop.json": {
+        "scene_title": "버스 정류장 (현대극 2인극)",
+        "characters": ["민수", "지은"],
+        "lines": [
+            {
+                "speaker": "민수",
+                "direction": "비가 내리는 버스 정류장. 젖은 우산을 접으며 차갑게 말한다.",
+                "dialogue": "결국 올 줄 알았어. 근데 이제 와서 무슨 할 말이 남았니?",
+                "emotion": "차갑고 실망한 톤"
+            },
+            {
+                "speaker": "지은",
+                "direction": "한숨을 쉬며 시선을 피한다",
+                "dialogue": "미안해. 그땐 나도 어쩔 수가 없었어.",
+                "emotion": "망설임/슬픔"
+            },
+            {
+                "speaker": "민수",
+                "direction": "헛웃음을 치며 고개를 돌린다",
+                "dialogue": "어쩔 수 없었다는 말, 네 입버릇인 거 이제 지겹다.",
+                "emotion": "분노/차갑게"
+            },
+            {
+                "speaker": "지은",
+                "direction": "민수의 소매를 조심스럽게 잡으며",
+                "dialogue": "딱 5분만 내 얘기 들어주면 안 될까? 정말 마지막이야.",
+                "emotion": "간절함/망설임"
+            }
+        ]
+    },
+    "romeo_juliet.json": {
+        "scene_title": "로미오와 줄리엣 (발코니 씬)",
+        "characters": ["로미오", "줄리엣"],
+        "lines": [
+            {
+                "speaker": "로미오",
+                "direction": "발코니 아래 정원에서 위를 올려다보며 속삭인다",
+                "dialogue": "저기 창문을 통해 비치는 저 빛은 무엇인가? 저곳이 동쪽이고 줄리엣은 태양이로다.",
+                "emotion": "설렘/차분함"
+            },
+            {
+                "speaker": "줄리엣",
+                "direction": "난간에 기대어 밤하늘을 보며 한숨짓는다",
+                "dialogue": "오, 로미오, 로미오! 왜 당신은 로미오인가요?",
+                "emotion": "망설임/슬픔"
+            },
+            {
+                "speaker": "로미오",
+                "direction": "조심스럽게 한 걸음 다가가며",
+                "dialogue": "더 듣고 있을 것인가, 아니면 지금 대답을 할 것인가?",
+                "emotion": "진지함/차분함"
+            }
+        ]
+    }
+}
+
 # 세션 상태 초기화
 if "step" not in st.session_state:
-    st.session_state.step = "setup"  # setup, rehearsal, report
+    st.session_state.step = "setup"
 if "script_data" not in st.session_state:
     st.session_state.script_data = None
 if "my_role" not in st.session_state:
@@ -28,13 +86,15 @@ if "results" not in st.session_state:
 if "turn_start_time" not in st.session_state:
     st.session_state.turn_start_time = None
 
-# 샘플 대본 로드
+# 샘플 대본 로드 (외부 파일 우선, 없으면 내장 데이터 사용)
 def load_sample(filename):
     path = os.path.join("samples", filename)
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return EMBEDDED_SAMPLES[filename]
 
-# 규칙 기반 + 간단 감정 태깅 대본 파서 (무료/즉시 실행 폴백 겸용)
+# 규칙 기반 + 간단 감정 태깅 대본 파서
 def parse_raw_script(raw_text):
     lines = raw_text.strip().split("\n")
     parsed = []
@@ -99,7 +159,7 @@ def mask_dialogue(text):
             masked.append(w)
     return " ".join(masked)
 
-# Levenshtein 편집 거리 기반 유사도 계산 (코드 로직)
+# Levenshtein 편집 거리 기반 유사도 계산
 def calculate_accuracy(target, spoken):
     t = re.sub(r"[^가-힣a-zA-Z0-9]", "", target)
     s = re.sub(r"[^가-힣a-zA-Z0-9]", "", spoken)
@@ -181,7 +241,6 @@ elif st.session_state.step == "rehearsal":
     lines = data["lines"]
     idx = st.session_state.current_idx
 
-    # 상단 상태바
     col1, col2, col3 = st.columns([1, 2, 1])
     with col1:
         if st.button("◀ 나가기"):
@@ -199,7 +258,6 @@ elif st.session_state.step == "rehearsal":
         is_my_turn = (current_line["speaker"] == st.session_state.my_role)
 
         st.divider()
-        # 이전 대사 맥락 보여주기
         if idx > 0:
             prev = lines[idx - 1]
             st.caption(f"이전 대사 — {prev['speaker']}: \"{prev['dialogue']}\"")
@@ -210,7 +268,6 @@ elif st.session_state.step == "rehearsal":
             st.caption(f"감정 태그: `{current_line['emotion']}` | 지문: {current_line['direction'] or '없음'}")
             st.info(f"### \"{current_line['dialogue']}\"")
 
-            # Edge-TTS 오디오 생성 및 자동 재생
             try:
                 audio_bytes = get_tts_audio(current_line["dialogue"], current_line["emotion"])
                 st.audio(audio_bytes, format="audio/mp3", autoplay=True)
@@ -237,7 +294,6 @@ elif st.session_state.step == "rehearsal":
                 st.toast(f"💡 힌트: \"{hint_words}...\"")
                 st.info(f"💡 첫 두 단어 힌트: **{hint_words}...**")
 
-            # 음성 녹음 또는 텍스트 시뮬레이션 입력
             st.write("🎙️ 대사를 말하거나(마이크 녹음), 환경 제한 시 아래 텍스트로 발화를 시뮬레이션하세요.")
             audio_val = st.audio_input("마이크로 내 대사 녹음하기")
             spoken_sim = st.text_input("발화 인식 결과 (테스트용 직접 수정 가능)", value=current_line["dialogue"], key=f"input_{idx}")
