@@ -42,13 +42,11 @@ def parse_raw_script(raw_text):
         line = line.strip()
         if not line:
             continue
-        # "배역: (지문) 대사" 또는 "배역: 대사" 형태 파싱
         match = re.match(r"^([^:：]+)[:：]\s*(?:\(([^)]+)\)\s*)?(.*)$", line)
         if match:
             speaker = match.group(1).strip()
             direction = match.group(2).strip() if match.group(2) else ""
             dialogue = match.group(3).strip()
-            # 간단한 감정 태그 추론
             emotion = "차분함"
             if any(k in direction + dialogue for k in ["화", "분노", "소리", "지겹", "짜증"]):
                 emotion = "분노/차갑게"
@@ -66,7 +64,7 @@ def parse_raw_script(raw_text):
 
 # Edge-TTS 비동기 음성 생성 함수
 async def generate_tts_async(text, emotion, output_path):
-    voice = "ko-KR-InJoonNeural"  # 기본 남성 성우 (필요시 변경 가능)
+    voice = "ko-KR-InJoonNeural"
     rate = "+0%"
     pitch = "+0Hz"
     if "차갑" in emotion or "분노" in emotion:
@@ -140,7 +138,7 @@ if st.session_state.step == "setup":
         with st.expander("대본 미리보기"):
             for item in data["lines"]:
                 dir_txt = f"({item['direction']}) " if item["direction"] else ""
-                st.write(f"**{item['speaker']}**: {dir_txt}"{item['dialogue']}" `[{item['emotion']}]`")
+                st.write(f"**{item['speaker']}**: {dir_txt}\"{item['dialogue']}\" `[{item['emotion']}]`")
 
         my_role = st.selectbox("내가 연기할 배역을 선택하세요", data["characters"])
         if st.button("🎬 리허설 시작하기", type="primary", use_container_width=True):
@@ -204,13 +202,13 @@ elif st.session_state.step == "rehearsal":
         # 이전 대사 맥락 보여주기
         if idx > 0:
             prev = lines[idx - 1]
-            st.caption(f"이전 대사 — {prev['speaker']}: "{prev['dialogue']}"")
+            st.caption(f"이전 대사 — {prev['speaker']}: \"{prev['dialogue']}\"")
 
         # 상대역 차례일 때
         if not is_my_turn:
             st.subheader(f"🗣️ [상대역: {current_line['speaker']}]")
             st.caption(f"감정 태그: `{current_line['emotion']}` | 지문: {current_line['direction'] or '없음'}")
-            st.info(f"### "{current_line['dialogue']}"")
+            st.info(f"### \"{current_line['dialogue']}\"")
 
             # Edge-TTS 오디오 생성 및 자동 재생
             try:
@@ -232,11 +230,11 @@ elif st.session_state.step == "rehearsal":
                 st.warning(f"🎬 지문: ({current_line['direction']})")
 
             display_text = mask_dialogue(current_line["dialogue"]) if st.session_state.blind_mode else current_line["dialogue"]
-            st.success(f"### "{display_text}"")
+            st.success(f"### \"{display_text}\"")
 
             if st.session_state.show_hint:
                 hint_words = " ".join(current_line["dialogue"].split()[:2])
-                st.toast(f"💡 힌트: "{hint_words}..."")
+                st.toast(f"💡 힌트: \"{hint_words}...\"")
                 st.info(f"💡 첫 두 단어 힌트: **{hint_words}...**")
 
             # 음성 녹음 또는 텍스트 시뮬레이션 입력
